@@ -13,7 +13,7 @@ all letters in the range passed
 through command line arguements*/
 /*******************************/
 char* charList;
-
+static bool cracked = false;
 
 /*@brief The method that equally divides the work between threads
 * @params wordLen The length of the word
@@ -22,13 +22,15 @@ char* charList;
 * @&threads Reference to list of Threads
 **/
 
-void createThreads(int wordLen, int threadCount, std::shared_ptr<Buffer> &bufObj, std::vector<std::thread*> &threads) {
+void createThreads(int wordLen, int threadCount, Buffer &bufObj) {
     
     int  index = 0;
     int charListSize = std::strlen(charList);
     int charSetSize = charListSize / threadCount;
     int difference = charListSize % threadCount;
     int equallydividedWork = charSetSize;
+    bufObj.setBufferSize(std::pow(charListSize, wordLen));
+    std::vector<std::thread> producerThread;
     // The character list is divided into equal set of characters
     // Each character Set is then used to generate strings that creates hashes
     size_t i = 0;
@@ -37,10 +39,10 @@ void createThreads(int wordLen, int threadCount, std::shared_ptr<Buffer> &bufObj
             charSetSize = 1;
         if(i + 1 == threadCount) 
             charSetSize += difference;
-        
+               
         // Threads are created 
-        threads[i] = new std::thread(&Buffer::add, bufObj, charList, index, charSetSize, charListSize, wordLen);
-      
+        producerThread.push_back(std::thread(&Buffer::add, &bufObj, charList, index, charSetSize, charListSize, wordLen));
+        
         index = charSetSize;
         charSetSize = charSetSize + equallydividedWork;
         if (charSetSize >= charListSize) {
@@ -50,14 +52,14 @@ void createThreads(int wordLen, int threadCount, std::shared_ptr<Buffer> &bufObj
     }
     
     // Once all threads are created the join() method is called to wait
-    for (size_t j = 0; j < threads.size(); ++j) { // Wait for all threads to finish
-        threads[j]->join();
-        delete threads[i];
+    for (size_t j = 0; j < producerThread.size(); ++j) { // Wait for all threads to finish
+        producerThread[j].join();
+       
     }
-    std::cout << "\n Finished executing Threads";
-    if (!bufObj->remove()) {
-        return;
-    }
+    std::cout << "\n Finished executing Threads for Word Length " << wordLen;
+    cracked = bufObj.remove();
+    return;
+    
 }
 
 /****************************************************
@@ -115,7 +117,7 @@ bool createCharList(std::string range) {
 
 
 /****************************************************************
-* @brief The main function that receives the command line interface
+* @brief The main function that receives the command line arguements
 * it receives command line arguements in this format.
 * C:\\Debug>brute.exe 3 10 65-90:97-122 hash_to_check
 *****************************************************************/
@@ -160,15 +162,22 @@ int main(int argc, char* argv[])
     
     int minLen = atoi(argv[1]);
     int maxLen = atoi(argv[2]);
-    std::shared_ptr<Buffer> bufObj(new Buffer(0, argv[4]));
-    std::vector<std::thread*> threads(processor_count);
+    Buffer bufObj(0, argv[4]);
+    
 
     // for each length the Threads are created and once their job is done they destroyed
     for (int length = minLen; length <= maxLen; length++) {
-        std::cout << length << "\n";
-        createThreads(length, processor_count, bufObj, threads);
+        createThreads(length, processor_count, bufObj);
+        if (cracked) {
+            break;
+        }
+        
     }
-    
+    if (!cracked) {
+        std::cout << "\n This Brute Application has exhausted all combination that could match the hash to check";
+        exit(0);
+
+    }
     return 0;
 }
 

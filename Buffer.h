@@ -5,7 +5,7 @@
 
 #include "md5.h"
 MD5 md5;
-static bool cracked = false;
+
 typedef std::unordered_map<std::string, std::string> MAP;
 
 
@@ -71,11 +71,10 @@ public:
     *@params wordLen length of the word to generate strings
     ******************************************************************/
     void add(char charList[], int index, int charSetSize, int charListSize, int wordLen) {
-        size_ = (int)std::pow(charListSize, wordLen);
-        std::cout << "The size of SIZE " << size_ << "\n";
+               
         while (true) {
             std::unique_lock<std::mutex> locker(mu);
-            cond.wait(locker, [this]() {return (int)buffer_.size() < size_; });
+            
             if (charSetSize == 0)
                 charSetSize = 1;
             while (index < charSetSize) {
@@ -95,19 +94,19 @@ public:
       and response accordingly
     *******************************************************/
     bool remove() {
-        cracked = false;
+        bool cracked = false;
         while (true)
         {
             //buffer_.size() > 0;
             std::unique_lock<std::mutex> locker(mu);
             cond.wait(locker, [this]() {return buffer_.size() > 0; });
-            std::cout << "\n\t\t\t I am inside remove ";
             const auto itrHash = buffer_.find(hash_);
             if (itrHash == buffer_.end()) {
                 buffer_.erase(itrHash, buffer_.end());
             }
             else {
-                std::cout << "\nThe Password of the Hash to Check " << itrHash->first << " is " << itrHash->second;
+                std::cout.flush();
+                std::cout << "\t*********\n\t SUCCESS :: The Password of the Hash to Check is " << itrHash->first << " is " << itrHash->second;
                 cracked = true;
             }
             locker.unlock();
@@ -115,14 +114,30 @@ public:
             return cracked;
         }
     }
-    Buffer(int size, std::string hash):size_(size), hash_(hash){}
-    Buffer(){}
+
+    /******************************
+     *Get the size of the Map Buffer
+     *****************************/
+    int getBufferSize() const {
+        return buffer_size;
+    }
+
+    /*********************************
+     *Set the size of the Map Buffer
+     *********************************/
+
+    void setBufferSize(int size) {
+        buffer_size = size;
+    }
+
+    Buffer(int size, std::string hash):buffer_size(size), hash_(hash){}
+    Buffer():buffer_size(0){}
 private:
     
     std::mutex mu;
     std::condition_variable cond;
 
     MAP buffer_;
-    unsigned int  size_;
+    int  buffer_size;
     std::string hash_; //hash to check
 };
